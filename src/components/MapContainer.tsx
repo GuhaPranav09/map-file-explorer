@@ -1,127 +1,93 @@
-import { useEffect, useRef, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { useState } from 'react';
+import { MapContainer as LeafletMap, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { MapPin, Search, Trash2, Globe, Map as MapIcon } from 'lucide-react';
+import { MapPin, Search, Trash2, Map as MapIcon, Satellite, Moon, Sun } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface Marker {
+// Fix for default marker icon
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
+
+interface MarkerData {
   id: string;
   name: string;
   coordinates: [number, number];
 }
 
-interface MapContainerProps {
-  mapboxToken: string;
+interface MapStyle {
+  name: string;
+  url: string;
+  attribution: string;
+  icon: any;
 }
 
-const MapContainer = ({ mapboxToken }: MapContainerProps) => {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const markers = useRef<{ [key: string]: mapboxgl.Marker }>({});
-  
-  const [savedMarkers, setSavedMarkers] = useState<Marker[]>([]);
+const mapStyles: Record<string, MapStyle> = {
+  streets: {
+    name: 'Streets',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    icon: MapIcon,
+  },
+  satellite: {
+    name: 'Satellite',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri',
+    icon: Satellite,
+  },
+  dark: {
+    name: 'Dark',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    icon: Moon,
+  },
+  light: {
+    name: 'Light',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    icon: Sun,
+  },
+};
+
+function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click: (e) => {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
+const MapContainer = () => {
+  const [savedMarkers, setSavedMarkers] = useState<MarkerData[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [mapStyle, setMapStyle] = useState<'streets' | 'satellite' | 'dark' | 'light'>('streets');
+  const [mapStyle, setMapStyle] = useState<keyof typeof mapStyles>('streets');
+  const [map, setMap] = useState<L.Map | null>(null);
 
-  const mapStyles = {
-    streets: 'mapbox://styles/mapbox/streets-v12',
-    satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
-    dark: 'mapbox://styles/mapbox/dark-v11',
-    light: 'mapbox://styles/mapbox/light-v11',
-  };
-
-  useEffect(() => {
-    if (!mapContainer.current || !mapboxToken) return;
-
-    mapboxgl.accessToken = mapboxToken;
-    
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: mapStyles[mapStyle],
-      projection: 'globe',
-      zoom: 2,
-      center: [0, 20],
-      pitch: 0,
-    });
-
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    map.current.addControl(new mapboxgl.FullscreenControl(), 'top-right');
-
-    map.current.on('style.load', () => {
-      map.current?.setFog({
-        color: 'rgb(186, 210, 235)',
-        'high-color': 'rgb(36, 92, 223)',
-        'horizon-blend': 0.02,
-        'space-color': 'rgb(11, 11, 25)',
-        'star-intensity': 0.6,
-      });
-    });
-
-    // Add click handler to add markers
-    map.current.on('click', (e) => {
-      const { lng, lat } = e.lngLat;
-      addMarker([lng, lat], `Location ${savedMarkers.length + 1}`);
-    });
-
-    // Restore saved markers
-    savedMarkers.forEach((marker) => {
-      createMarkerElement(marker.id, marker.coordinates, marker.name);
-    });
-
-    return () => {
-      map.current?.remove();
-    };
-  }, [mapboxToken, mapStyle]);
-
-  const createMarkerElement = (id: string, coordinates: [number, number], name: string) => {
-    if (!map.current) return;
-
-    const el = document.createElement('div');
-    el.className = 'marker';
-    el.style.width = '32px';
-    el.style.height = '32px';
-    el.style.cursor = 'pointer';
-    el.innerHTML = `
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="hsl(200 95% 45%)" stroke="white" stroke-width="2"/>
-        <circle cx="12" cy="9" r="2.5" fill="white"/>
-      </svg>
-    `;
-
-    const marker = new mapboxgl.Marker(el)
-      .setLngLat(coordinates)
-      .setPopup(
-        new mapboxgl.Popup({ offset: 25 }).setHTML(
-          `<div style="padding: 8px; font-family: system-ui;">
-            <h3 style="margin: 0 0 4px; font-weight: 600;">${name}</h3>
-            <p style="margin: 0; font-size: 12px; color: #666;">
-              ${coordinates[1].toFixed(4)}°, ${coordinates[0].toFixed(4)}°
-            </p>
-          </div>`
-        )
-      )
-      .addTo(map.current);
-
-    markers.current[id] = marker;
-  };
-
-  const addMarker = (coordinates: [number, number], name: string) => {
+  const addMarker = (lat: number, lng: number, name: string) => {
     const id = Date.now().toString();
-    const newMarker: Marker = { id, name, coordinates };
+    const newMarker: MarkerData = { 
+      id, 
+      name, 
+      coordinates: [lat, lng] 
+    };
     
     setSavedMarkers((prev) => [...prev, newMarker]);
-    createMarkerElement(id, coordinates, name);
     toast.success(`Added ${name}`);
   };
 
+  const handleMapClick = (lat: number, lng: number) => {
+    addMarker(lat, lng, `Location ${savedMarkers.length + 1}`);
+  };
+
   const removeMarker = (id: string) => {
-    if (markers.current[id]) {
-      markers.current[id].remove();
-      delete markers.current[id];
-    }
     setSavedMarkers((prev) => prev.filter((m) => m.id !== id));
     toast.success('Marker removed');
   };
@@ -131,20 +97,20 @@ const MapContainer = ({ mapboxToken }: MapContainerProps) => {
 
     try {
       const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
-          searchQuery
-        )}.json?access_token=${mapboxToken}`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`
       );
       const data = await response.json();
 
-      if (data.features && data.features.length > 0) {
-        const [lng, lat] = data.features[0].center;
-        map.current?.flyTo({
-          center: [lng, lat],
-          zoom: 12,
-          duration: 2000,
+      if (data && data.length > 0) {
+        const { lat, lon, display_name } = data[0];
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lon);
+        
+        map?.flyTo([latitude, longitude], 13, {
+          duration: 2,
         });
-        addMarker([lng, lat], data.features[0].place_name);
+        
+        addMarker(latitude, longitude, display_name);
         setSearchQuery('');
       } else {
         toast.error('Location not found');
@@ -155,10 +121,8 @@ const MapContainer = ({ mapboxToken }: MapContainerProps) => {
   };
 
   const flyToMarker = (coordinates: [number, number]) => {
-    map.current?.flyTo({
-      center: coordinates,
-      zoom: 14,
-      duration: 1500,
+    map?.flyTo(coordinates, 14, {
+      duration: 1.5,
     });
   };
 
@@ -193,19 +157,21 @@ const MapContainer = ({ mapboxToken }: MapContainerProps) => {
         <div className="p-4 border-b border-border">
           <p className="text-sm font-medium mb-2">Map Style</p>
           <div className="grid grid-cols-2 gap-2">
-            {(['streets', 'satellite', 'dark', 'light'] as const).map((style) => (
-              <Button
-                key={style}
-                variant={mapStyle === style ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setMapStyle(style)}
-                className="capitalize"
-              >
-                {style === 'streets' && <MapIcon className="h-3 w-3 mr-1" />}
-                {style === 'satellite' && <Globe className="h-3 w-3 mr-1" />}
-                {style}
-              </Button>
-            ))}
+            {(Object.keys(mapStyles) as Array<keyof typeof mapStyles>).map((style) => {
+              const Icon = mapStyles[style].icon;
+              return (
+                <Button
+                  key={style}
+                  variant={mapStyle === style ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setMapStyle(style)}
+                  className="capitalize"
+                >
+                  <Icon className="h-3 w-3 mr-1" />
+                  {mapStyles[style].name}
+                </Button>
+              );
+            })}
           </div>
         </div>
 
@@ -232,7 +198,7 @@ const MapContainer = ({ mapboxToken }: MapContainerProps) => {
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-sm truncate">{marker.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {marker.coordinates[1].toFixed(4)}°, {marker.coordinates[0].toFixed(4)}°
+                          {marker.coordinates[0].toFixed(4)}°, {marker.coordinates[1].toFixed(4)}°
                         </p>
                       </div>
                     </div>
@@ -257,13 +223,36 @@ const MapContainer = ({ mapboxToken }: MapContainerProps) => {
 
       {/* Map */}
       <div className="flex-1 relative">
-        <div ref={mapContainer} className="absolute inset-0" />
+        <LeafletMap
+          center={[20, 0]}
+          zoom={2}
+          className="h-full w-full"
+          ref={setMap}
+        >
+          <TileLayer
+            url={mapStyles[mapStyle].url}
+            attribution={mapStyles[mapStyle].attribution}
+          />
+          <MapClickHandler onMapClick={handleMapClick} />
+          {savedMarkers.map((marker) => (
+            <Marker key={marker.id} position={marker.coordinates}>
+              <Popup>
+                <div className="p-1">
+                  <h3 className="font-semibold text-sm">{marker.name}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {marker.coordinates[0].toFixed(4)}°, {marker.coordinates[1].toFixed(4)}°
+                  </p>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </LeafletMap>
         
         {/* Info overlay */}
-        <div className="absolute top-4 left-4 right-4 pointer-events-none">
+        <div className="absolute top-4 left-4 right-4 pointer-events-none z-[1000]">
           <Card className="p-3 bg-card/90 backdrop-blur-sm border-border/50 pointer-events-auto">
             <p className="text-xs text-muted-foreground">
-              💡 Click anywhere on the map to add a marker • Search for locations • Explore different map styles
+              💡 Click anywhere on the map to add a marker • Search for locations • Explore different map styles • 100% Free!
             </p>
           </Card>
         </div>
