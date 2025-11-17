@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { MapContainer as LeafletMap, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Input } from '@/components/ui/input';
@@ -56,22 +55,55 @@ const mapStyles: Record<string, MapStyle> = {
   },
 };
 
-function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click: (e) => {
-      onMapClick(e.latlng.lat, e.latlng.lng);
-    },
-  });
-  return null;
-}
-
 const MapContainer = () => {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<L.Map | null>(null);
+  const markersRef = useRef<{ [key: string]: L.Marker }>({});
+  
   const [savedMarkers, setSavedMarkers] = useState<MarkerData[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [mapStyle, setMapStyle] = useState<keyof typeof mapStyles>('streets');
-  const [map, setMap] = useState<L.Map | null>(null);
+
+  // Initialize map
+  useEffect(() => {
+    if (!mapContainer.current || map.current) return;
+
+    map.current = L.map(mapContainer.current).setView([20, 0], 2);
+
+    L.tileLayer(mapStyles[mapStyle].url, {
+      attribution: mapStyles[mapStyle].attribution,
+    }).addTo(map.current);
+
+    // Add click handler
+    map.current.on('click', (e: L.LeafletMouseEvent) => {
+      const { lat, lng } = e.latlng;
+      addMarker(lat, lng, `Location ${savedMarkers.length + 1}`);
+    });
+
+    return () => {
+      map.current?.remove();
+      map.current = null;
+    };
+  }, []);
+
+  // Update map style
+  useEffect(() => {
+    if (!map.current) return;
+
+    map.current.eachLayer((layer) => {
+      if (layer instanceof L.TileLayer) {
+        map.current?.removeLayer(layer);
+      }
+    });
+
+    L.tileLayer(mapStyles[mapStyle].url, {
+      attribution: mapStyles[mapStyle].attribution,
+    }).addTo(map.current);
+  }, [mapStyle]);
 
   const addMarker = (lat: number, lng: number, name: string) => {
+    if (!map.current) return;
+
     const id = Date.now().toString();
     const newMarker: MarkerData = { 
       id, 
@@ -79,21 +111,33 @@ const MapContainer = () => {
       coordinates: [lat, lng] 
     };
     
+    const marker = L.marker([lat, lng])
+      .addTo(map.current)
+      .bindPopup(`
+        <div style="padding: 4px;">
+          <h3 style="margin: 0 0 4px; font-weight: 600; font-size: 14px;">${name}</h3>
+          <p style="margin: 0; font-size: 12px; color: #666;">
+            ${lat.toFixed(4)}°, ${lng.toFixed(4)}°
+          </p>
+        </div>
+      `);
+
+    markersRef.current[id] = marker;
     setSavedMarkers((prev) => [...prev, newMarker]);
     toast.success(`Added ${name}`);
   };
 
-  const handleMapClick = (lat: number, lng: number) => {
-    addMarker(lat, lng, `Location ${savedMarkers.length + 1}`);
-  };
-
   const removeMarker = (id: string) => {
+    if (markersRef.current[id]) {
+      markersRef.current[id].remove();
+      delete markersRef.current[id];
+    }
     setSavedMarkers((prev) => prev.filter((m) => m.id !== id));
     toast.success('Marker removed');
   };
 
   const searchLocation = async () => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim() || !map.current) return;
 
     try {
       const response = await fetch(
@@ -106,7 +150,7 @@ const MapContainer = () => {
         const latitude = parseFloat(lat);
         const longitude = parseFloat(lon);
         
-        map?.flyTo([latitude, longitude], 13, {
+        map.current.flyTo([latitude, longitude], 13, {
           duration: 2,
         });
         
@@ -121,7 +165,9 @@ const MapContainer = () => {
   };
 
   const flyToMarker = (coordinates: [number, number]) => {
-    map?.flyTo(coordinates, 14, {
+    if (!map.current) return;
+    
+    map.current.flyTo(coordinates, 14, {
       duration: 1.5,
     });
   };
@@ -223,30 +269,7 @@ const MapContainer = () => {
 
       {/* Map */}
       <div className="flex-1 relative">
-        <LeafletMap
-          center={[20, 0]}
-          zoom={2}
-          className="h-full w-full"
-          ref={setMap}
-        >
-          <TileLayer
-            url={mapStyles[mapStyle].url}
-            attribution={mapStyles[mapStyle].attribution}
-          />
-          <MapClickHandler onMapClick={handleMapClick} />
-          {savedMarkers.map((marker) => (
-            <Marker key={marker.id} position={marker.coordinates}>
-              <Popup>
-                <div className="p-1">
-                  <h3 className="font-semibold text-sm">{marker.name}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    {marker.coordinates[0].toFixed(4)}°, {marker.coordinates[1].toFixed(4)}°
-                  </p>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-        </LeafletMap>
+        <div ref={mapContainer} className="h-full w-full" />
         
         {/* Info overlay */}
         <div className="absolute top-4 left-4 right-4 pointer-events-none z-[1000]">
