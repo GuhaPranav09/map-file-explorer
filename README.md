@@ -1,73 +1,99 @@
-# Welcome to your Lovable project
+# Interactive Map Application
 
-## Project info
+A beautiful, interactive map application built with React, Leaflet, and OpenStreetMap - completely free and open source.
 
-**URL**: https://lovable.dev/projects/89ee32a2-5b2a-4ce3-8e75-6646b5338886
+## Features
 
-## How can I edit this code?
+- 🗺️ **Interactive Map** - Explore the world with smooth pan and zoom controls
+- 📍 **Custom Markers** - Click anywhere on the map to add markers
+- 🔍 **Location Search** - Search for any location using the built-in geocoding
+- 💾 **Saved Locations** - All your markers are saved locally and persist across sessions
+- 🎨 **Multiple Map Styles** - Switch between Street, Satellite, Terrain, and Dark modes
+- 📱 **Responsive Design** - Works seamlessly on desktop, tablet, and mobile devices
+- ✨ **Modern UI** - Clean interface with glassmorphism effects and smooth animations
 
-There are several ways of editing your application.
+## Technologies Used
 
-**Use Lovable**
+- **React 18** - Modern UI library
+- **TypeScript** - Type-safe development
+- **Leaflet** - Interactive maps library
+- **OpenStreetMap** - Free map data
+- **Tailwind CSS** - Utility-first styling
+- **Vite** - Fast build tool
+- **shadcn/ui** - Beautiful component library
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/89ee32a2-5b2a-4ce3-8e75-6646b5338886) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js (v18 or higher)
+- npm or yarn
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+1. Clone the repository:
+```bash
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
+```
 
-# Step 3: Install the necessary dependencies.
-npm i
+2. Install dependencies:
+```bash
+npm install
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+3. Start the development server:
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+4. Open your browser and navigate to the local development URL shown in the terminal.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Usage
 
-**Use GitHub Codespaces**
+1. **Adding Markers** - Click anywhere on the map to add a marker
+2. **Searching** - Use the search bar to find locations worldwide
+3. **Saving Locations** - Your markers are automatically saved to local storage
+4. **Removing Markers** - Click the trash icon next to any saved location
+5. **Flying to Locations** - Click on saved locations to fly to them on the map
+6. **Changing Map Style** - Use the style dropdown to switch between different map views
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Deployment
 
-## What technologies are used for this project?
+This project can be deployed to any static hosting service:
 
-This project is built with:
+- **Lovable** - Click the Publish button in the Lovable editor
+- **Vercel** - Connect your GitHub repo to Vercel
+- **Netlify** - Drag and drop the `dist` folder after running `npm run build`
+- **GitHub Pages** - Use GitHub Actions for automatic deployment
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Project Structure
 
-## How can I deploy this project?
+```
+src/
+├── components/
+│   ├── MapContainer.tsx    # Main map component
+│   ├── NavLink.tsx         # Navigation helper
+│   └── ui/                 # shadcn/ui components
+├── pages/
+│   ├── Index.tsx           # Home page
+│   └── NotFound.tsx        # 404 page
+├── hooks/                  # Custom React hooks
+├── lib/                    # Utility functions
+└── index.css              # Global styles and design tokens
+```
 
-Simply open [Lovable](https://lovable.dev/projects/89ee32a2-5b2a-4ce3-8e75-6646b5338886) and click on Share -> Publish.
+## Contributing
 
-## Can I connect a custom domain to my Lovable project?
+Contributions are welcome! Feel free to open issues or submit pull requests.
 
-Yes, you can!
+## License
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+This project is open source and available under the MIT License.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Acknowledgments
+
+- Map data from [OpenStreetMap](https://www.openstreetmap.org/)
+- Map library by [Leaflet](https://leafletjs.com/)
+- Geocoding by [Nominatim](https://nominatim.org/)
+- Built with [Lovable](https://lovable.dev/)
