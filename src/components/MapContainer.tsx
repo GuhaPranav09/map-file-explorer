@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { MapPin, Search, Trash2, Map as MapIcon, Satellite, Moon, Sun } from 'lucide-react';
+import { MapPin, Search, Trash2, Map as MapIcon, Satellite, Moon, Sun, Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Fix for default marker icon
@@ -172,6 +172,57 @@ const MapContainer = () => {
     });
   };
 
+  const exportLocations = () => {
+    const dataStr = JSON.stringify(savedMarkers, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `map-locations-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success('Locations exported successfully!');
+  };
+
+  const importLocations = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const locations: MarkerData[] = JSON.parse(content);
+        
+        Object.values(markersRef.current).forEach(marker => marker.remove());
+        markersRef.current = {};
+        
+        setSavedMarkers(locations);
+        locations.forEach(loc => {
+          const marker = L.marker(loc.coordinates)
+            .addTo(map.current!)
+            .bindPopup(`
+              <div style="padding: 4px;">
+                <h3 style="margin: 0 0 4px; font-weight: 600; font-size: 14px;">${loc.name}</h3>
+                <p style="margin: 0; font-size: 12px; color: #666;">
+                  ${loc.coordinates[0].toFixed(4)}, ${loc.coordinates[1].toFixed(4)}
+                </p>
+              </div>
+            `);
+          markersRef.current[loc.id] = marker;
+        });
+        
+        toast.success(`Imported ${locations.length} locations!`);
+      } catch (error) {
+        toast.error('Failed to import locations. Invalid file format.');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  };
+
   return (
     <div className="flex h-screen w-full bg-background">
       {/* Sidebar */}
@@ -225,6 +276,34 @@ const MapContainer = () => {
         <div className="flex-1 overflow-y-auto p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold">Saved Locations ({savedMarkers.length})</h2>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={exportLocations}
+                disabled={savedMarkers.length === 0}
+                title="Export locations"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => document.getElementById('import-file')?.click()}
+                title="Import locations"
+              >
+                <Upload className="h-3.5 w-3.5" />
+              </Button>
+              <input
+                id="import-file"
+                type="file"
+                accept=".json"
+                onChange={importLocations}
+                className="hidden"
+              />
+            </div>
           </div>
           <div className="space-y-2">
             {savedMarkers.length === 0 ? (
